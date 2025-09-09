@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Software Marketplace</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body { font-family: Arial, sans-serif; background: #f9f9f9; margin: 0; padding: 0; }
+    .container { padding: 20px; max-width: 1000px; margin: auto; }
+    header { display: flex; justify-content: space-between; align-items: center; }
+    .welcome { font-size: 1.1rem; }
+
+    .tab-container { margin-top: 30px; }
+    .tab-buttons { display: flex; gap: 10px; margin-bottom: 20px; }
+    .tab-btn { padding: 10px 20px; background: #eee; border: none; border-radius: 6px; cursor: pointer; }
+    .tab-btn.active { background: #3498db; color: white; }
+    .tab-content { display: none; }
+    .tab-content.active { display: block; }
+
+    .block { background: #fff; padding: 15px; margin-bottom: 20px; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.1); }
+    video { max-width: 100%; height: auto; margin: 10px 0; }
+    .btn-group button {
+      margin-right: 10px;
+      padding: 8px 15px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn-download { background: #27ae60; color: white; }
+    .btn-buy { background: #e74c3c; color: white; }
+    .btn-edit { background: #3498db; color: white; }
+    .purchase-badge { background-color: #27ae60; color: white; padding: 4px 8px; border-radius: 12px; font-size: 0.8rem; margin-left: 10px; }
+
+    .upload-btn, .admin-btn, .logout-btn {
+      margin-left: 10px;
+      padding: 10px 20px;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .upload-btn { background: #3498db; }
+    .admin-btn { background: #9b59b6; }
+    .logout-btn { background: #e74c3c; }
+
+    /* Fullscreen modals */
+    #uploadModal, #editModal {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.7);
+      display: none;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: #fff;
+      width: 100%;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 30px;
+      border-radius: 10px;
+      position: relative;
+    }
+
+    .modal-content h2 {
+      margin-top: 0;
+    }
+
+    .close-btn {
+      position: absolute;
+      top: 10px;
+      right: 15px;
+      font-size: 1.5rem;
+      cursor: pointer;
+    }
+
+    .modal-actions {
+      margin-top: 20px;
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+    }
+
+    input[type="text"], input[type="number"], input[type="file"] {
+      width: 100%;
+      padding: 10px;
+      margin-top: 6px;
+      margin-bottom: 16px;
+      border-radius: 4px;
+      border: 1px solid #ccc;
+    }
+
+    label { font-weight: bold; display: block; }
+
+    small {
+      display: block;
+      color: #666;
+      font-size: 0.8rem;
+      margin-top: -10px;
+      margin-bottom: 15px;
+    }
+
+    /* PayPal processing indicator */
+    .paypal-processing {
+      display: inline-block;
+      padding: 10px 15px;
+      background: #f0f0f0;
+      border-radius: 4px;
+      margin-top: 10px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Software Marketplace</h1>
+        <p class="welcome">Welcome, <strong id="username">User</strong>!</p>
+      </div>
+      <div>
+        <button class="admin-btn" onclick="goToAdminPanel()" style="display:none;">⚙️ Admin Panel</button>
+        <button class="upload-btn" onclick="showUploadForm()" style="display:none;">📤 Upload Software</button>
+        <button class="logout-btn" onclick="logout()">🚪 Logout</button>
+      </div>
+    </header>
+
+    <div class="tab-container">
+      <div class="tab-buttons">
+        <button class="tab-btn active" onclick="showTab('marketplace')">🛒 Marketplace</button>
+        <button class="tab-btn" onclick="showTab('my-uploads')">📤 My Uploads</button>
+        <button class="tab-btn" onclick="showTab('my-purchases')">📥 My Purchases</button>
+      </div>
+
+      <div id="marketplaceTab" class="tab-content active">
+        <h2>Available Software</h2>
+        <div id="softwareList"><p>Loading...</p></div>
+      </div>
+      <div id="myUploadsTab" class="tab-content">
+        <h2>My Uploaded Software</h2>
+        <div id="myUploadsList"><p>Loading...</p></div>
+      </div>
+      <div id="myPurchasesTab" class="tab-content">
+        <h2>My Purchased Software</h2>
+        <div id="myPurchasesList"><p>Loading...</p></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Upload Modal -->
+  <div id="uploadModal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="hideUploadForm()">&times;</span>
+      <h2>📤 Upload Your Software</h2>
+      <form id="uploadForm" enctype="multipart/form-data">
+        <label>Title:</label>
+        <input type="text" id="title" name="title" required />
+
+        <label>Demo Video (MP4):</label>
+        <input type="file" id="video" name="video" accept="video/mp4" required />
+
+        <label>Software ZIP File:</label>
+        <input type="file" id="zipFile" name="zipFile" accept=".zip" required />
+
+        <label>Price ($):</label>
+        <input type="number" id="price" name="price" step="0.01" min="0" required />
+
+        <div class="modal-actions">
+          <button type="button" onclick="hideUploadForm()">Cancel</button>
+          <button type="submit">Upload</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- Edit Modal -->
+  <div id="editModal">
+    <div class="modal-content">
+      <span class="close-btn" onclick="hideEditForm()">&times;</span>
+      <h2>✏️ Edit Software</h2>
+      <form id="editForm" enctype="multipart/form-data">
+        <input type="hidden" id="editId" name="id">
+
+        <label>Title:</label>
+        <input type="text" id="editTitle" name="title" required />
+
+        <label>Demo Video (MP4):</label>
+        <input type="file" id="editVideo" name="video" accept="video/mp4" />
+        <small>Leave empty to keep current video</small>
+
+        <label>Software ZIP File:</label>
+        <input type="file" id="editZipFile" name="zipFile" accept=".zip" />
+        <small>Leave empty to keep current ZIP file</small>
+
+        <label>Price ($):</label>
+        <input type="number" id="editPrice" name="price" step="0.01" min="0" required />
+
+        <div class="modal-actions">
+          <button type="button" onclick="hideEditForm()">Cancel</button>
+          <button type="submit">Update Software</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script>
+    const API = "http://192.168.1.40:8080/api";
+    const username = localStorage.getItem('username');
+    document.getElementById("username").textContent = username || "Guest";
+
+    // Current software being edited
+    let currentEditingSoftware = null;
+    // Track active PayPal payment buttons
+    const activePayPalButtons = {};
+
+    // Logout function
+    function logout() {
+      if (confirm("Are you sure you want to logout?")) {
+        // Clear all stored user data
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+
+        // Redirect to login page
+        window.location.href = 'index.html';
+      }
+    }
+
+    function showTab(tabName) {
+      const tabMap = {
+        "marketplace": "marketplaceTab",
+        "my-uploads": "myUploadsTab",
+        "my-purchases": "myPurchasesTab"
+      };
+
+      const tabId = tabMap[tabName];
+      if (!tabId) return;
+
+      document.querySelectorAll(".tab-content").forEach(tab => {
+        tab.classList.remove("active");
+        tab.style.display = "none";
+      });
+
+      document.querySelectorAll(".tab-btn").forEach(btn => {
+        btn.classList.remove("active");
+      });
+
+      const tabElement = document.getElementById(tabId);
+      if (tabElement) {
+        tabElement.classList.add("active");
+        tabElement.style.display = "block";
+      }
+
+      const button = document.querySelector(`.tab-btn[onclick="showTab('${tabName}')"]`);
+      if (button) button.classList.add("active");
+
+      // Show Upload button only on My Uploads
+      const uploadBtn = document.querySelector(".upload-btn");
+      if (tabName === "my-uploads") {
+        uploadBtn.style.display = "inline-block";
+      } else {
+        uploadBtn.style.display = "none";
+      }
+
+      if (tabName === "marketplace") loadMarketplace();
+      else if (tabName === "my-uploads") loadMyUploads();
+      else if (tabName === "my-purchases") loadMyPurchases();
+    }
+
+    function showUploadForm() {
+      document.getElementById("uploadModal").style.display = "block";
+    }
+
+    function hideUploadForm() {
+      document.getElementById("uploadModal").style.display = "none";
+      document.getElementById("uploadForm").reset();
+    }
+
+    function showEditForm() {
+      document.getElementById("editModal").style.display = "block";
+    }
+
+    function hideEditForm() {
+      document.getElementById("editModal").style.display = "none";
+      document.getElementById("editForm").reset();
+      currentEditingSoftware = null;
+    }
+
+    function goToAdminPanel() {
+      window.location.href = "admin.html";
+    }
+
+    async function loadMarketplace() {
+      try {
+        const res = await fetch(`${API}/software/list`);
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        const list = await res.json();
+        const container = document.getElementById("softwareList");
+        container.innerHTML = "";
+
+        if (list.length === 0) {
+          container.innerHTML = "<p>No software available yet.</p>";
+          return;
+        }
+
+        list.forEach(s => {
+          const isOwner = s.uploadedBy === username;
+          container.innerHTML += `
+            <div class="block">
+              <span>Uploaded by: ${s.uploadedBy || 'Unknown'}</span>
+              <h3>${escapeHtml(s.title)}</h3>
+              <video controls><source src="${API.replace('/api','')}${s.videoUrl}" type="video/mp4"></video>
+              <p><strong>Price:</strong> $${s.price.toFixed(2)}</p>
+              <div class="btn-group">
+                <a href="${API.replace('/api','')}${s.zipUrl}" download>
+                  <button class="btn-download">📥 Download</button>
+                </a>
+                ${isOwner ?
+                  `<button class="btn-edit" onclick="editSoftware(${s.id})">✏️ Edit</button>` :
+                  `<button class="btn-buy" id="buy-btn-${s.id}" onclick="purchaseSoftware(${s.id}, ${s.price}, '${escapeHtml(s.title)}')">💳 Buy $${s.price.toFixed(2)}</button>`
+                }
+              </div>
+            </div>`;
+        });
+      } catch (e) {
+        console.error("Error loading marketplace:", e);
+        document.getElementById("softwareList").innerHTML = "<p>❌ Error loading software. Please try again later.</p>";
+      }
+    }
+
+    async function loadMyUploads() {
+      const token = localStorage.getItem("token");
+      const container = document.getElementById("myUploadsList");
+      if (!token) {
+        container.innerHTML = "<p>Please login to view your uploads.</p>";
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/software/my-uploads`, { headers: { "Authorization": `Bearer ${token}` } });
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        const list = await res.json();
+        container.innerHTML = "";
+        if (list.length === 0) {
+          container.innerHTML = "<p>You have no uploads yet.</p>"; return;
+        }
+        list.forEach(s => {
+          container.innerHTML += `
+            <div class="block">
+              <h3>${escapeHtml(s.title)}</h3>
+              <video controls><source src="${API.replace('/api','')}${s.videoUrl}" type="video/mp4"></video>
+              <p><strong>Price:</strong> $${s.price.toFixed(2)}</p>
+              <div class="btn-group">
+                <a href="${API.replace('/api','')}${s.zipUrl}" download>
+                  <button class="btn-download">📥 Download</button>
+                </a>
+                <button class="btn-edit" onclick="editSoftware(${s.id})">✏️ Edit</button>
+              </div>
+            </div>`;
+        });
+      } catch (e) {
+        console.error("Error loading uploads:", e);
+        container.innerHTML = `<p>❌ ${e.message}</p>`;
+      }
+    }
+
+    async function loadMyPurchases() {
+      const token = localStorage.getItem("token");
+      const container = document.getElementById("myPurchasesList");
+      if (!token) {
+        container.innerHTML = "<p>Please login to view your purchases.</p>";
+        return;
+      }
+      try {
+        const res = await fetch(`${API}/software/my-purchases`, { headers: { "Authorization": `Bearer ${token}` } });
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+        const purchases = await res.json();
+        container.innerHTML = "";
+        if (purchases.length === 0) {
+          container.innerHTML = "<p>You have not purchased any software yet.</p>"; return;
+        }
+        purchases.forEach(p => {
+          const s = p.software;
+          container.innerHTML += `
+            <div class="block">
+              <h3>${escapeHtml(s.title)} <span class="purchase-badge">Purchased</span></h3>
+              <video controls><source src="${API.replace('/api','')}${s.videoUrl}" type="video/mp4"></video>
+              <p><strong>Paid:</strong> $${p.pricePaid.toFixed(2)}</p>
+              <p><strong>Date:</strong> ${new Date(p.purchaseDate).toLocaleDateString()}</p>
+              <a href="${API.replace('/api','')}${s.zipUrl}" download>
+                <button class="btn-download">📥 Download</button>
+              </a>
+            </div>`;
+        });
+      } catch (e) {
+        console.error("Error loading purchases:", e);
+        container.innerHTML = `<p>❌ ${e.message}</p>`;
+      }
+    }
+
+    // Edit software - Load software details and show edit form
+    async function editSoftware(id) {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("Please login to edit software.");
+        return;
+      }
+
+      try {
+        // Fetch software details
+        const res = await fetch(`${API}/software/${id}`, {
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+
+        if (!res.ok) throw new Error(`Error ${res.status}`);
+
+        const software = await res.json();
+        currentEditingSoftware = software;
+
+        // Populate edit form
+        document.getElementById("editId").value = software.id;
+        document.getElementById("editTitle").value = software.title;
+        document.getElementById("editPrice").value = software.price;
+
+        // Show edit form
+        showEditForm();
+
+      } catch (e) {
+        console.error("Error loading software details:", e);
+        alert("❌ Error loading software details. Please try again.");
+      }
+    }
+
+    // Handle edit form submission
+    document.getElementById("editForm").onsubmit = async (e) => {
+      e.preventDefault();
+
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("Please login to edit software.");
+        return;
+      }
+
+      if (!currentEditingSoftware) {
+        alert("No software selected for editing.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("title", document.getElementById("editTitle").value);
+      formData.append("price", document.getElementById("editPrice").value);
+
+      // Only append files if they are selected
+      const videoFile = document.getElementById("editVideo").files[0];
+      if (videoFile) {
+        formData.append("video", videoFile);
+      }
+
+      const zipFile = document.getElementById("editZipFile").files[0];
+      if (zipFile) {
+        formData.append("zipFile", zipFile);
+      }
+
+      try {
+        const res = await fetch(`${API}/software/update/${currentEditingSoftware.id}`, {
+          method: "PUT",
+          headers: { "Authorization": `Bearer ${token}` },
+          body: formData
+        });
+
+        if (res.ok) {
+          alert("✅ Software updated successfully!");
+          hideEditForm();
+          // Refresh both marketplace and my uploads
+          loadMarketplace();
+          loadMyUploads();
+        } else {
+          const errorText = await res.text();
+          alert(`❌ Update failed: ${errorText}`);
+        }
+      } catch (e) {
+        console.error("Update error:", e);
+        alert("❌ Network error during update. Please try again.");
+      }
+    };
+
+    // PayPal payment integration
+    async function purchaseSoftware(softwareId, price, softwareTitle = "Software") {
+      const token = localStorage.getItem("token");
+      if (!token) {
+        alert("Please login to purchase software.");
+        return;
+      }
+
+      try {
+        // Show loading state
+        const buyButton = document.getElementById(`buy-btn-${softwareId}`);
+        const originalText = buyButton.textContent;
+        buyButton.textContent = "⏳ Processing...";
+        buyButton.disabled = true;
+        
+        // Store button state for later restoration
+        activePayPalButtons[softwareId] = { button: buyButton, originalText };
+
+        // Create PayPal payment
+        const paymentResponse = await fetch(`${API}/payment/create-payment`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            softwareId: softwareId,
+            softwareTitle: softwareTitle
+          })
+        });
+
+        if (!paymentResponse.ok) {
+          const errorText = await paymentResponse.text();
+          throw new Error(`Payment creation failed: ${errorText}`);
+        }
+
+        const paymentData = await paymentResponse.json();
+
+        // Redirect to PayPal approval URL in a popup
+        const width = 600;
+        const height = 700;
+        const left = (window.innerWidth - width) / 2;
+        const top = (window.innerHeight - height) / 2;
+        
+        const paypalWindow = window.open(
+          paymentData.approvalUrl, 
+          'PayPal', 
+          `width=${width},height=${height},top=${top},left=${left}`
+        );
+
+        // Check if popup was blocked
+        if (!paypalWindow || paypalWindow.closed || typeof paypalWindow.closed === 'undefined') {
+          // If popup blocked, redirect in same window
+          window.location.href = paymentData.approvalUrl;
+          return;
+        }
+
+        // Poll for payment completion
+        const checkPayment = setInterval(async () => {
+          if (paypalWindow.closed) {
+            clearInterval(checkPayment);
+            
+            // Check if purchase was successful
+            const verifyResponse = await fetch(`${API}/purchases/check/${softwareId}`, {
+              headers: {
+                "Authorization": `Bearer ${token}`
+              }
+            });
+            
+            if (verifyResponse.ok) {
+              const result = await verifyResponse.json();
+              if (result.hasPurchased) {
+                alert("✅ Payment successful! You can now download the software.");
+                // Refresh UI
+                const activeTab = document.querySelector('.tab-content.active').id;
+                if (activeTab === 'marketplaceTab') loadMarketplace();
+                else if (activeTab === 'myPurchasesTab') loadMyPurchases();
+              } else {
+                alert("❌ Payment was not completed. Please try again.");
+              }
+            } else {
+              alert("❌ Payment verification failed. Please check your purchases.");
+            }
+            
+            // Restore button
+            if (activePayPalButtons[softwareId]) {
+              activePayPalButtons[softwareId].button.textContent = activePayPalButtons[softwareId].originalText;
+              activePayPalButtons[softwareId].button.disabled = false;
+              delete activePayPalButtons[softwareId];
+            }
+          }
+        }, 1000);
+
+      } catch (error) {
+        console.error("Payment error:", error);
+        alert("❌ Payment initialization failed. Please try again.");
+        
+        // Restore button
+        if (activePayPalButtons[softwareId]) {
+          activePayPalButtons[softwareId].button.textContent = activePayPalButtons[softwareId].originalText;
+          activePayPalButtons[softwareId].button.disabled = false;
+          delete activePayPalButtons[softwareId];
+        }
+      }
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement("div");
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    async function checkAdminStatus() {
+      const token = localStorage.getItem("token");
+      if (!token) return;
+      try {
+        const res = await fetch(`${API}/auth/check-admin`, { headers: { "Authorization": `Bearer ${token}` } });
+        if (res.ok && await res.json()) {
+          document.querySelector('.admin-btn').style.display = 'inline-block';
+        }
+      } catch (e) {
+        console.error("Admin check failed:", e);
+      }
+    }
+
+    document.getElementById("uploadForm").onsubmit = async (e) => {
+      e.preventDefault();
+      const token = localStorage.getItem("token");
+      if (!token) return alert("Please login to upload.");
+      const formData = new FormData(e.target);
+      try {
+        const res = await fetch(`${API}/software/upload`, {
+          method: "POST", headers: { "Authorization": `Bearer ${token}` }, body: formData
+        });
+        if (res.ok) {
+          alert("✅ Upload successful!");
+          hideUploadForm();
+          loadMarketplace();
+          loadMyUploads(); // Also refresh my uploads tab
+        } else {
+          alert(`❌ Upload failed: ${await res.text()}`);
+        }
+      } catch (e) {
+        console.error("Upload error:", e);
+        alert("❌ Network error during upload.");
+      }
+    };
+
+    window.onload = function() {
+      // Check if user is logged in
+      const token = localStorage.getItem("token");
+      if (!token) {
+        // Redirect to login if not authenticated
+        window.location.href = 'index.html';
+        return;
+      }
+
+      showTab("marketplace"); // Default tab
+      checkAdminStatus();
+    };
+  </script>
+</body>
+</html>

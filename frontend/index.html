@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Login / Register - Software Marketplace</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f7f9fc;
+      color: #2c3e50;
+      margin: 0;
+      padding: 40px;
+      display: flex;
+      justify-content: center;
+    }
+    .container {
+      max-width: 400px;
+      width: 100%;
+    }
+    .form {
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+      text-align: center;
+    }
+    h2 {
+      margin: 0 0 20px;
+      color: #2980b9;
+    }
+    label {
+      display: block;
+      text-align: left;
+      margin: 15px 0 5px;
+      font-weight: 600;
+      color: #34495e;
+    }
+    input {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 1rem;
+      box-sizing: border-box;
+    }
+    button {
+      width: 100%;
+      padding: 12px;
+      margin-top: 20px;
+      background-color: #27ae60;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 1rem;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #219653;
+    }
+    .toggle {
+      margin-top: 20px;
+      font-size: 0.95rem;
+      color: #7f8c8d;
+    }
+    .toggle a {
+      color: #3498db;
+      text-decoration: none;
+    }
+    .error {
+      color: #e74c3c;
+      font-size: 0.9rem;
+      margin: 10px 0;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Login Form -->
+    <div id="loginForm" class="form">
+      <h2>Login</h2>
+      <div id="loginError" class="error" style="display: none;"></div>
+      <label>Username</label>
+      <input type="text" id="loginUsername" placeholder="Enter your username" />
+      <label>Password</label>
+      <input type="password" id="loginPassword" placeholder="Enter your password" />
+      <button onclick="login()">Login</button>
+      <p class="toggle">
+        Don't have an account? <a href="#" onclick="showRegister()">Register here</a>
+      </p>
+    </div>
+
+    <!-- Register Form -->
+    <div id="registerForm" class="form" style="display: none;">
+      <h2>Create Account</h2>
+      <div id="registerError" class="error" style="display: none;"></div>
+      <label>Username</label>
+      <input type="text" id="regUsername" placeholder="Choose a username" />
+      <label>Password</label>
+      <input type="password" id="regPassword" placeholder="Create a password" />
+      <button onclick="register()">Register</button>
+      <p class="toggle">
+        Already have an account? <a href="#" onclick="showLogin()">Login here</a>
+      </p>
+    </div>
+  </div>
+
+  <script>
+    // Show login form
+    function showLogin() {
+      document.getElementById('loginForm').style.display = 'block';
+      document.getElementById('registerForm').style.display = 'none';
+      clearMessages();
+    }
+
+    // Show register form
+    function showRegister() {
+      document.getElementById('loginForm').style.display = 'none';
+      document.getElementById('registerForm').style.display = 'block';
+      clearMessages();
+    }
+
+    // Clear error messages
+    function clearMessages() {
+      document.getElementById('loginError').style.display = 'none';
+      document.getElementById('registerError').style.display = 'none';
+    }
+
+    // Handle Login
+    function login() {
+      const username = document.getElementById('loginUsername').value.trim();
+      const password = document.getElementById('loginPassword').value;
+
+      if (!username || !password) {
+        showError('loginError', 'Both fields are required');
+        return;
+      }
+
+      fetch('http://192.168.1.40:8080/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      })
+      .then(res => {
+        if (res.ok) return res.json();
+        throw new Error("Invalid username or password");
+      })
+      .then(data => {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('username', data.username);
+        // ✅ Redirect to dashboard
+        window.location.href = 'dashboard.html';
+      })
+      .catch(err => {
+        showError('loginError', err.message);
+      });
+    }
+
+    // Handle Registration
+    function register() {
+      const username = document.getElementById('regUsername').value.trim();
+      const password = document.getElementById('regPassword').value;
+
+      if (!username || !password) {
+        showError('registerError', 'Both fields are required');
+        return;
+      }
+
+      fetch('http://192.168.1.40:8080/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+      })
+      .then(res => {
+        if (res.ok) {
+          alert('✅ Registration successful! Please log in.');
+          showLogin();
+        } else {
+          res.text().then(text => showError('registerError', text || 'Registration failed'));
+        }
+      })
+      .catch(err => {
+        showError('registerError', 'Network error. Try again.');
+      });
+    }
+
+    // Show error message
+    function showError(elementId, message) {
+      const el = document.getElementById(elementId);
+      el.textContent = message;
+      el.style.display = 'block';
+    }
+
+    // On page load, show login by default
+    window.onload = showLogin;
+  </script>
+</body>
+</html>

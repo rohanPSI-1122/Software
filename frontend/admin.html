@@ -1,0 +1,493 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Admin Panel - Software Marketplace</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #f7f9fc;
+      color: #2c3e50;
+      margin: 0;
+      padding: 20px;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 30px;
+      padding-bottom: 15px;
+      border-bottom: 1px solid #ddd;
+    }
+    h1 {
+      margin: 0;
+      color: #2980b9;
+    }
+    .welcome {
+      font-size: 1.2em;
+      color: #34495e;
+    }
+    .nav {
+      display: flex;
+      gap: 15px;
+      margin-bottom: 20px;
+    }
+    .nav button {
+      padding: 10px 20px;
+      background-color: #3498db;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+    }
+    .nav button.active {
+      background-color: #2980b9;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: white;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 12px 15px;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    th {
+      background-color: #2980b9;
+      color: white;
+    }
+    tr:hover {
+      background-color: #f5f5f5;
+    }
+    .btn {
+      padding: 6px 12px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      margin-right: 5px;
+    }
+    .btn-delete {
+      background-color: #e74c3c;
+      color: white;
+    }
+    .btn-promote {
+      background-color: #27ae60;
+      color: white;
+    }
+    .btn-demote {
+      background-color: #f39c12;
+      color: white;
+    }
+    .admin-badge {
+      background-color: #9b59b6;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+    }
+    .user-badge {
+      background-color: #3498db;
+      color: white;
+      padding: 4px 8px;
+      border-radius: 12px;
+      font-size: 0.8rem;
+    }
+    .access-denied {
+      text-align: center;
+      padding: 40px;
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    }
+    .access-denied h2 {
+      color: #e74c3c;
+    }
+    .loading {
+      text-align: center;
+      padding: 20px;
+      color: #7f8c8d;
+    }
+    .success-message {
+      background-color: #d4edda;
+      color: #155724;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      display: none;
+    }
+    .error-message {
+      background-color: #f8d7da;
+      color: #721c24;
+      padding: 10px;
+      border-radius: 4px;
+      margin-bottom: 15px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <div>
+        <h1>Software Marketplace - Admin Panel</h1>
+        <p class="welcome">Welcome, <strong id="username">Admin</strong>!</p>
+      </div>
+      <div>
+        <button onclick="window.location.href='dashboard.html'" style="margin-right: 10px;">← Back to Dashboard</button>
+        <button onclick="logout()" style="background: #e74c3c; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer;">🚪 Logout</button>
+      </div>
+    </header>
+
+    <div id="successMessage" class="success-message"></div>
+    <div id="errorMessage" class="error-message"></div>
+
+    <div id="adminContent" style="display: none;">
+      <div class="nav">
+        <button id="softwareTab" class="active" onclick="showTab('software')">Software Management</button>
+        <button id="usersTab" onclick="showTab('users')">User Management</button>
+      </div>
+
+      <div id="softwareSection">
+        <h2>All Software Uploads</h2>
+        <div id="softwareLoading" class="loading">Loading software...</div>
+        <table id="softwareTable" style="display: none;">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Title</th>
+              <th>Uploaded By</th>
+              <th>Price</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Will be populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+
+      <div id="usersSection" style="display: none;">
+        <h2>User Management</h2>
+        <div id="usersLoading" class="loading">Loading users...</div>
+        <table id="usersTable" style="display: none;">
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Username</th>
+              <th>Role</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            <!-- Will be populated by JavaScript -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <div id="accessDenied" class="access-denied" style="display: none;">
+      <h2>⛔ Access Denied</h2>
+      <p>You don't have permission to access the admin panel.</p>
+      <button onclick="window.location.href='dashboard.html'">Return to Dashboard</button>
+    </div>
+  </div>
+
+  <script>
+    const API = "http://192.168.1.40:8080/api";
+
+    // Check admin access on page load
+    async function checkAdminAccess() {
+      const token = localStorage.getItem("token");
+
+      if (!token) {
+        showAccessDenied();
+        return;
+      }
+
+      try {
+        const res = await fetch(`${API}/auth/check-admin`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+
+        if (res.ok) {
+          const isAdmin = await res.json();
+          if (isAdmin) {
+            document.getElementById('adminContent').style.display = 'block';
+            document.getElementById('username').textContent = localStorage.getItem('username') || 'Admin';
+            loadSoftware();
+          } else {
+            showAccessDenied();
+          }
+        } else {
+          showAccessDenied();
+        }
+      } catch (err) {
+        console.error("Admin check error:", err);
+        showAccessDenied();
+      }
+    }
+
+    function showAccessDenied() {
+      document.getElementById('accessDenied').style.display = 'block';
+    }
+
+    function showTab(tabName) {
+      if (tabName === 'software') {
+        document.getElementById('softwareSection').style.display = 'block';
+        document.getElementById('usersSection').style.display = 'none';
+        document.getElementById('softwareTab').classList.add('active');
+        document.getElementById('usersTab').classList.remove('active');
+        loadSoftware();
+      } else {
+        document.getElementById('softwareSection').style.display = 'none';
+        document.getElementById('usersSection').style.display = 'block';
+        document.getElementById('softwareTab').classList.remove('active');
+        document.getElementById('usersTab').classList.add('active');
+        loadUsers();
+      }
+    }
+
+    function showMessage(message, isSuccess = true) {
+      const element = isSuccess ? document.getElementById('successMessage') : document.getElementById('errorMessage');
+      const otherElement = isSuccess ? document.getElementById('errorMessage') : document.getElementById('successMessage');
+      
+      element.textContent = message;
+      element.style.display = 'block';
+      otherElement.style.display = 'none';
+      
+      // Auto-hide after 5 seconds
+      setTimeout(() => {
+        element.style.display = 'none';
+      }, 5000);
+    }
+
+    async function loadSoftware() {
+      try {
+        document.getElementById('softwareLoading').style.display = 'block';
+        document.getElementById('softwareTable').style.display = 'none';
+
+        const res = await fetch(`${API}/software/list`);
+        if (!res.ok) throw new Error("Failed to fetch software list");
+
+        const softwares = await res.json();
+        const tbody = document.querySelector("#softwareTable tbody");
+        tbody.innerHTML = "";
+
+        if (softwares.length === 0) {
+          document.getElementById('softwareLoading').innerHTML = "No software available.";
+          return;
+        }
+
+        softwares.forEach(s => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${s.id}</td>
+            <td>${escapeHtml(s.title)}</td>
+            <td>${s.uploadedBy || 'Unknown'}</td>
+            <td>$${s.price.toFixed(2)}</td>
+            <td>
+              <button class="btn btn-delete" onclick="deleteSoftware(${s.id})">Delete</button>
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        document.getElementById('softwareLoading').style.display = 'none';
+        document.getElementById('softwareTable').style.display = 'table';
+
+      } catch (err) {
+        console.error("Error loading software:", err);
+        document.getElementById('softwareLoading').innerHTML = "Error loading software. Please try again.";
+      }
+    }
+
+    async function loadUsers() {
+      const token = localStorage.getItem("token");
+
+      try {
+        document.getElementById('usersLoading').style.display = 'block';
+        document.getElementById('usersTable').style.display = 'none';
+
+        const res = await fetch(`${API}/auth/users`, {
+          method: "GET",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+
+        if (!res.ok) {
+          if (res.status === 403) {
+            document.getElementById('usersLoading').innerHTML = "You don't have permission to view users.";
+            return;
+          }
+          throw new Error(`HTTP error! status: ${res.status}`);
+        }
+
+        const users = await res.json();
+        const tbody = document.querySelector("#usersTable tbody");
+        tbody.innerHTML = "";
+
+        if (users.length === 0) {
+          document.getElementById('usersLoading').innerHTML = "No users found.";
+          return;
+        }
+
+        users.forEach(user => {
+          const row = document.createElement("tr");
+          row.innerHTML = `
+            <td>${user.id}</td>
+            <td>${escapeHtml(user.username)}</td>
+            <td>
+              ${user.isAdmin ?
+                '<span class="admin-badge">Admin</span>' :
+                '<span class="user-badge">User</span>'
+              }
+            </td>
+            <td>
+              ${user.isAdmin ?
+                `<button class="btn btn-demote" onclick="demoteUser(${user.id}, '${escapeHtml(user.username)}')">Demote to User</button>` :
+                `<button class="btn btn-promote" onclick="promoteUser(${user.id}, '${escapeHtml(user.username)}')">Promote to Admin</button>`
+              }
+            </td>
+          `;
+          tbody.appendChild(row);
+        });
+
+        document.getElementById('usersLoading').style.display = 'none';
+        document.getElementById('usersTable').style.display = 'table';
+
+      } catch (err) {
+        console.error("Error loading users:", err);
+        document.getElementById('usersLoading').innerHTML = "Error loading users. Please try again.";
+      }
+    }
+
+    async function deleteSoftware(id) {
+      if (!confirm("Are you sure you want to delete this software? This action cannot be undone.")) {
+        return;
+      }
+
+      const token = localStorage.getItem("token");
+
+      try {
+        const res = await fetch(`${API}/software/delete/${id}`, {
+          method: "DELETE",
+          headers: {
+            "Authorization": `Bearer ${token}`
+          }
+        });
+
+        if (res.ok) {
+          showMessage("Software deleted successfully!");
+          loadSoftware();
+        } else {
+          const text = await res.text();
+          showMessage("Delete failed: " + text, false);
+        }
+      } catch (err) {
+        console.error("Delete error:", err);
+        showMessage("Network error: " + err.message, false);
+      }
+    }
+
+    async function promoteUser(userId, username) {
+      if (!confirm(`Are you sure you want to promote ${username} to admin?`)) {
+        return;
+      }
+
+      const token = localStorage.getItem("token");
+
+      try {
+        // Use the promote endpoint with request body
+        const res = await fetch(`${API}/auth/promote/${userId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            makeAdmin: true
+          })
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          showMessage(`User ${username} promoted to admin successfully!`);
+          loadUsers(); // Refresh the user list
+        } else {
+          const errorText = await res.text();
+          showMessage("Promotion failed: " + errorText, false);
+        }
+      } catch (err) {
+        console.error("Promote error:", err);
+        showMessage("Network error: " + err.message, false);
+      }
+    }
+
+    async function demoteUser(userId, username) {
+      if (!confirm(`Are you sure you want to demote ${username} to regular user?`)) {
+        return;
+      }
+
+      const token = localStorage.getItem("token");
+
+      try {
+        // Use the promote endpoint with request body (set makeAdmin to false)
+        const res = await fetch(`${API}/auth/promote/${userId}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            makeAdmin: false
+          })
+        });
+
+        if (res.ok) {
+          const result = await res.json();
+          showMessage(`User ${username} demoted to regular user successfully!`);
+          loadUsers(); // Refresh the user list
+        } else {
+          const errorText = await res.text();
+          showMessage("Demotion failed: " + errorText, false);
+        }
+      } catch (err) {
+        console.error("Demote error:", err);
+        showMessage("Network error: " + err.message, false);
+      }
+    }
+
+    function logout() {
+      if (confirm("Are you sure you want to logout?")) {
+        localStorage.removeItem('token');
+        localStorage.removeItem('username');
+        localStorage.removeItem('isAdmin');
+        window.location.href = 'index.html';
+      }
+    }
+
+    // Utility to prevent XSS
+    function escapeHtml(text) {
+      const div = document.createElement('div');
+      div.textContent = text;
+      return div.innerHTML;
+    }
+
+    // Check admin access on page load
+    window.onload = checkAdminAccess;
+  </script>
+</body>
+</html>
