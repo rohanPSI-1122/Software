@@ -30,7 +30,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @RestController
-@CrossOrigin(origins = "http://192.168.1.40:3000", allowCredentials = "true")
+@CrossOrigin(origins = "http://192.168.1.33:3000", allowCredentials = "true")
 @RequestMapping("/api/software")
 public class SoftwareController {
 

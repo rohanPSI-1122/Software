@@ -22,7 +22,7 @@ import java.time.LocalDateTime;
 import java.util.*;
 
 @RestController
-@CrossOrigin(origins = "http://192.168.1.40:3000", allowCredentials = "true")
+@CrossOrigin(origins = "http://192.168.1.33:3000", allowCredentials = "true")
 @RequestMapping("/api/payment")
 public class PayPalController {
 

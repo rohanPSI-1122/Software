@@ -11,7 +11,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "http://192.168.1.40:3000")
+@CrossOrigin(origins = "http://192.168.1.33:3000")
 @RequestMapping("/api")
 public class PaymentController {
 
@@ -28,8 +28,8 @@ public class PaymentController {
         SessionCreateParams params = SessionCreateParams.builder()
                 .addPaymentMethodType(SessionCreateParams.PaymentMethodType.CARD)
                 .setMode(SessionCreateParams.Mode.PAYMENT)
-                .setSuccessUrl("http://192.168.1.40:3000/success.html")
-                .setCancelUrl("http://192.168.1.40:3000/dashboard")
+                .setSuccessUrl("http://192.168.1.33:3000/success.html")
+                .setCancelUrl("http://192.168.1.33:3000/dashboard")
                 .addLineItem(SessionCreateParams.LineItem.builder()
                         .setPrice(data.get("priceId"))
                         .setQuantity(1L)
