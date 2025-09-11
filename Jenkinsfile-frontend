@@ -35,7 +35,8 @@ pipeline {
         stage('Install Dependencies') {
             steps {
                 dir('frontend') {
-                    sh 'npm install --silent --no-audit --no-fund'
+                    sh 'sh 'npm install --no-audit --no-fund'
+'
                     echo "✅ Dependencies installed successfully"
                 }
             }
