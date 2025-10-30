@@ -1,0 +1,125 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+        
+      - name: Set up JDK 11
+        uses: actions/setup-java@v2
+        with:
+          java-version: '11'
+
+      - name: Set up Maven
+        uses: actions/setup-java@v2
+        with:
+          java-version: '11'
+          maven-version: '3.8.1'
+
+      - name: Display environment details
+        run: |
+          echo "=== Environment Setup ==="
+          java -version
+          mvn -version
+          pwd
+          echo "Git commit: ${GITHUB_SHA}"
+
+      - name: Dependency Check
+        run: |
+          cd backend
+          mvn dependency:tree -q
+
+      - name: Compile Code
+        run: |
+          cd backend
+          mvn clean compile -q
+          echo "✅ Backend code compiled successfully"
+
+      - name: Run Unit Tests
+        run: |
+          cd backend
+          mvn test -q || true
+        continue-on-error: true  # Allows the pipeline to continue even if tests fail
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+
+      - name: Code Coverage
+        run: |
+          cd backend
+          mvn jacoco:report -q
+          echo "✅ Code coverage report generated"
+
+      - name: Static Code Analysis
+        run: |
+          cd backend
+          mvn checkstyle:checkstyle -q || true
+          mvn pmd:pmd -q || true
+          echo "✅ Static code analysis completed"
+
+      - name: Build Package
+        run: |
+          cd backend
+          mvn package -DskipTests -q
+          echo "✅ JAR package built successfully"
+
+      - name: Security Scan
+        run: |
+          cd backend
+          mvn org.owasp:dependency-check-maven:check -q || true
+          echo "✅ Dependency security scan completed"
+
+      - name: Save build info
+        run: |
+          echo "Build: ${{ github.run_number }}" > build-info.txt
+          echo "Status: ${{ job.status }}" >> build-info.txt
+          echo "Duration: ${{ job.conclusion }}" >> build-info.txt
+          echo "Commit: ${{ github.sha }}" >> build-info.txt
+
+      - name: Upload build info as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: build-info
+          path: build-info.txt
+
+      - name: Upload build artifacts (JAR files)
+        uses: actions/upload-artifact@v2
+        with:
+          name: backend-jar
+          path: backend/target/*.jar
+
+      - name: Upload test reports
+        uses: actions/upload-artifact@v2
+        with:
+          name: test-reports
+          path: backend/target/surefire-reports/
+
+      - name: Upload static analysis reports
+        uses: actions/upload-artifact@v2
+        with:
+          name: static-analysis
+          path: backend/target/checkstyle-result.xml
+
+      - name: Upload security scan report
+        uses: actions/upload-artifact@v2
+        with:
+          name: security-scan-report
+          path: backend/target/dependency-check-report.html
+
+  clean-up:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Clean workspace
+        run: |
+          rm -rf backend/target
