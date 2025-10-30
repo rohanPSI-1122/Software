@@ -87,31 +87,31 @@ jobs:
           echo "Commit: ${{ github.sha }}" >> build-info.txt
 
       - name: Upload build info as artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: build-info
           path: build-info.txt
 
       - name: Upload build artifacts (JAR files)
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: backend-jar
           path: backend/target/*.jar
 
       - name: Upload test reports
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: test-reports
           path: backend/target/surefire-reports/
 
       - name: Upload static analysis reports
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: static-analysis
           path: backend/target/checkstyle-result.xml
 
       - name: Upload security scan report
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: security-scan-report
           path: backend/target/dependency-check-report.html
