@@ -2,124 +2,115 @@ name: CI Pipeline
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v2
-        
-      - name: Set up JDK 11
-        uses: actions/setup-java@v2
+      - name: Checkout code
+        uses: actions/checkout@v4
         with:
-          java-version: '11'
+          fetch-depth: 0  # Needed for full changelog if required
 
-      - name: Set up Maven
-        uses: actions/setup-java@v2
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
         with:
-          java-version: '11'
-          maven-version: '3.8.1'
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
 
-      - name: Display environment details
+      - name: Setup Environment
         run: |
           echo "=== Environment Setup ==="
           java -version
           mvn -version
           pwd
-          echo "Git commit: ${GITHUB_SHA}"
+          echo "Git commit: ${{ github.sha }}"
 
       - name: Dependency Check
-        run: |
-          cd backend
-          mvn dependency:tree -q
+        run: mvn dependency:tree -q
+        working-directory: ./backend
 
       - name: Compile Code
-        run: |
-          cd backend
-          mvn clean compile -q
-          echo "✅ Backend code compiled successfully"
+        run: mvn clean compile -q
+        working-directory: ./backend
 
       - name: Run Unit Tests
-        run: |
-          cd backend
-          mvn test -q || true
-        continue-on-error: true  # Allows the pipeline to continue even if tests fail
-        env:
-          GITHUB_SHA: ${{ github.sha }}
+        run: mvn test -q || true
+        working-directory: ./backend
+
+      - name: Publish Test Results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports/*.xml
+          if-no-files-found: ignore
 
       - name: Code Coverage
-        run: |
-          cd backend
-          mvn jacoco:report -q
-          echo "✅ Code coverage report generated"
+        run: mvn jacoco:report -q
+        working-directory: ./backend
+
+      - name: Archive Code Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: jacoco-report
+          path: backend/target/site/jacoco/
+          if-no-files-found: ignore
 
       - name: Static Code Analysis
         run: |
-          cd backend
           mvn checkstyle:checkstyle -q || true
           mvn pmd:pmd -q || true
-          echo "✅ Static code analysis completed"
+        working-directory: ./backend
+
+      - name: Archive Checkstyle & PMD Reports
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: static-analysis-reports
+          path: |
+            backend/target/checkstyle-result.xml
+            backend/target/pmd.xml
+          if-no-files-found: ignore
 
       - name: Build Package
-        run: |
-          cd backend
-          mvn package -DskipTests -q
-          echo "✅ JAR package built successfully"
+        run: mvn package -DskipTests -q
+        working-directory: ./backend
+
+      - name: Archive JAR Artifact
+        uses: actions/upload-artifact@v4
+        if: success()
+        with:
+          name: built-jar
+          path: backend/target/*.jar
 
       - name: Security Scan
-        run: |
-          cd backend
-          mvn org.owasp:dependency-check-maven:check -q || true
-          echo "✅ Dependency security scan completed"
+        run: mvn org.owasp:dependency-check-maven:check -q || true
+        working-directory: ./backend
 
-      - name: Save build info
+      - name: Archive Security Scan Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: dependency-check-report
+          path: backend/target/dependency-check-report.html
+          if-no-files-found: ignore
+
+      - name: Generate Build Info
         run: |
           echo "Build: ${{ github.run_number }}" > build-info.txt
           echo "Status: ${{ job.status }}" >> build-info.txt
-          echo "Duration: ${{ job.conclusion }}" >> build-info.txt
           echo "Commit: ${{ github.sha }}" >> build-info.txt
+          # GitHub Actions doesn't expose a direct duration field, but you can compute if needed
 
-      - name: Upload build info as artifact
-        uses: actions/upload-artifact@latest
+      - name: Archive Build Info
+        uses: actions/upload-artifact@v4
         with:
           name: build-info
           path: build-info.txt
-
-      - name: Upload build artifacts (JAR files)
-        uses: actions/upload-artifact@latest
-        with:
-          name: backend-jar
-          path: backend/target/*.jar
-
-      - name: Upload test reports
-        uses: actions/upload-artifact@latest
-        with:
-          name: test-reports
-          path: backend/target/surefire-reports/
-
-      - name: Upload static analysis reports
-        uses: actions/upload-artifact@latest
-        with:
-          name: static-analysis
-          path: backend/target/checkstyle-result.xml
-
-      - name: Upload security scan report
-        uses: actions/upload-artifact@latest
-        with:
-          name: security-scan-report
-          path: backend/target/dependency-check-report.html
-
-  clean-up:
-    runs-on: ubuntu-latest
-    needs: build
-    steps:
-      - name: Clean workspace
-        run: |
-          rm -rf backend/target
